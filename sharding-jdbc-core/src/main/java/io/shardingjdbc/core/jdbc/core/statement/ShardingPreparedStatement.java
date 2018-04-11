@@ -167,7 +167,7 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     
     private Collection<PreparedStatement> generatePreparedStatementForDDL(final SQLExecutionUnit sqlExecutionUnit) throws SQLException {
         Collection<PreparedStatement> result = new LinkedList<>();
-        Collection<Connection> connections = getConnection().getAllConnections(sqlExecutionUnit.getDataSource());
+        Collection<Connection> connections = getConnection().getConnectionsForDDL(sqlExecutionUnit.getDataSource());
         for (Connection each : connections) {
             result.add(each.prepareStatement(sqlExecutionUnit.getSql(), resultSetType, resultSetConcurrency, resultSetHoldability));
         }
@@ -271,7 +271,11 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
         for (PreparedStatement each : routedStatements) {
             resultSets.add(each.getResultSet());
         }
-        currentResultSet = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+        if (routeResult.getSqlStatement() instanceof SelectStatement) {
+            currentResultSet = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+        } else {
+            currentResultSet = resultSets.get(0);
+        }
         return currentResultSet;
     }
 }

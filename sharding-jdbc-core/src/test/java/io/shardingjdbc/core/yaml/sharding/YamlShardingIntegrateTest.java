@@ -22,6 +22,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.shardingjdbc.core.api.ConfigMapContext;
 import io.shardingjdbc.core.api.ShardingDataSourceFactory;
+import io.shardingjdbc.core.constant.ShardingProperties;
+import io.shardingjdbc.core.constant.ShardingPropertiesConstant;
 import io.shardingjdbc.core.yaml.AbstractYamlDataSourceTest;
 import lombok.RequiredArgsConstructor;
 import org.junit.Test;
@@ -31,6 +33,7 @@ import org.junit.runners.Parameterized;
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -42,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(Parameterized.class)
 @RequiredArgsConstructor
@@ -62,7 +66,7 @@ public class YamlShardingIntegrateTest extends AbstractYamlDataSourceTest {
     }
     
     @Test
-    public void assertWithDataSource() throws SQLException, URISyntaxException, IOException {
+    public void assertWithDataSource() throws SQLException, URISyntaxException, IOException, NoSuchFieldException, IllegalAccessException {
         File yamlFile = new File(YamlShardingIntegrateTest.class.getResource(filePath).toURI());
         DataSource dataSource;
         if (hasDataSource) {
@@ -75,14 +79,21 @@ public class YamlShardingIntegrateTest extends AbstractYamlDataSourceTest {
                 }
             }), yamlFile);
         }
+        if (filePath.contains("WithProps.yaml")) {
+            Field field = dataSource.getClass().getDeclaredField("shardingProperties");
+            if (!field.isAccessible()) {
+                field.setAccessible(true);
+            }
+            ShardingProperties shardingProperties = (ShardingProperties) field.get(dataSource);
+            assertTrue((Boolean) shardingProperties.getValue(ShardingPropertiesConstant.SQL_SHOW));
+        }
         Map<String, Object> configMap = new ConcurrentHashMap<>();
         configMap.put("key1", "value1");
         assertThat(ConfigMapContext.getInstance().getShardingConfig(), is(configMap));
         try (Connection conn = dataSource.getConnection();
              Statement stm = conn.createStatement()) {
             stm.execute(String.format("INSERT INTO t_order(user_id,status) values(%d, %s)", 10, "'insert'"));
-            stm.executeQuery("SELECT * FROM t_order");
-            stm.executeQuery("SELECT * FROM t_order_item");
+            stm.executeQuery("SELECT o.*, i.* FROM T_order o JOIN T_order_item i ON o.order_id = i.order_id");
             stm.executeQuery("SELECT * FROM config");
         }
     }

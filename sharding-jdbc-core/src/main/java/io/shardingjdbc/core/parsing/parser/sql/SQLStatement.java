@@ -74,9 +74,9 @@ public interface SQLStatement {
     void setParametersIndex(int parametersIndex);
     
     /**
-     * 增加索引偏移量.
+     * Increase parameters index.
      *
-     * @return 增加后的索引偏移量
+     * @return increased parameters index
      */
     int increaseParametersIndex();
 }

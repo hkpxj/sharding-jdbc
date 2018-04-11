@@ -1,8 +1,34 @@
+## 2.0.3
+
+### 功能提升
+1. [ISSUE #600](https://github.com/shardingjdbc/sharding-jdbc/issues/600) 支持TCL
+
+### 缺陷修正
+1. [ISSUE #522](https://github.com/shardingjdbc/sharding-jdbc/issues/522) 读写分离Slave库不需要执行DDL语句
+1. [ISSUE #540](https://github.com/shardingjdbc/sharding-jdbc/issues/540) 梳理并支持别名为关键字SQL
+1. [ISSUE #577](https://github.com/shardingjdbc/sharding-jdbc/issues/577) 支持YAML配置换行
+
+## 2.0.2
+
+### 功能提升
+1. [ISSUE #475](https://github.com/shardingjdbc/sharding-jdbc/issues/475) 支持CREATE INDEX
+1. [ISSUE #525](https://github.com/shardingjdbc/sharding-jdbc/issues/525) 支持DROP INDEX
+
+### 缺陷修正
+1. [ISSUE #520](https://github.com/shardingjdbc/sharding-jdbc/issues/520) 引入分表后，唯一键冲突时异常类型不再是DuplicateKeyException
+1. [ISSUE #521](https://github.com/shardingjdbc/sharding-jdbc/issues/521) YAML文件中ShardingProperties设置无效
+1. [ISSUE #529](https://github.com/shardingjdbc/sharding-jdbc/issues/529) 表名大写无法查询
+1. [ISSUE #541](https://github.com/shardingjdbc/sharding-jdbc/issues/541) 无法解析IS NOT NULL
+1. [ISSUE #557](https://github.com/shardingjdbc/sharding-jdbc/issues/557) GroupBy和OrderBy仅别名不一致问题应使用流式归并
+1. [ISSUE #559](https://github.com/shardingjdbc/sharding-jdbc/issues/559) 支持解析以负号和小数点开头的数字(如:-.12)
+1. [ISSUE #567](https://github.com/shardingjdbc/sharding-jdbc/issues/567) MySQL补列时增加转义符以防止使用关键字作为列名或别名导致错误
+
 ## 2.0.1
 
 ### 功能提升
 1. [ISSUE #489](https://github.com/shardingjdbc/sharding-jdbc/issues/489) SpringName使用RuntimeBeanReference防止创建InnerBean
 1. [ISSUE #496](https://github.com/shardingjdbc/sharding-jdbc/issues/496) 分片配置中逻辑表名可以大小写不敏感
+1. [ISSUE #497](https://github.com/shardingjdbc/sharding-jdbc/issues/497) 注册中心优雅关闭
 
 ### 缺陷修正
 1. [ISSUE #490](https://github.com/shardingjdbc/sharding-jdbc/issues/490) Oracle使用rownum大于等于或小于等于分页结果不正确

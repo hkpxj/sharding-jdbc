@@ -194,7 +194,7 @@ public class ShardingStatement extends AbstractStatementAdapter {
             Collection<Connection> connections;
             SQLType sqlType = routeResult.getSqlStatement().getType();
             if (SQLType.DDL == sqlType) {
-                connections = connection.getAllConnections(each.getDataSource());
+                connections = connection.getConnectionsForDDL(each.getDataSource());
             } else {
                 connections = Collections.singletonList(connection.getConnection(each.getDataSource(), routeResult.getSqlStatement().getType()));
             }
@@ -247,7 +247,11 @@ public class ShardingStatement extends AbstractStatementAdapter {
         for (Statement each : routedStatements) {
             resultSets.add(each.getResultSet());
         }
-        currentResultSet = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+        if (routeResult.getSqlStatement() instanceof SelectStatement) {
+            currentResultSet = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+        } else {
+            currentResultSet = resultSets.get(0);
+        }
         return currentResultSet;
     }
 }

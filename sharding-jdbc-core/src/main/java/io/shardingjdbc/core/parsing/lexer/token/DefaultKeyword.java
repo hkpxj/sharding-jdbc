@@ -73,6 +73,7 @@ public enum DefaultKeyword implements Keyword {
     NOSORT,
     REVERSE,
     COMPILE,
+    FULLTEXT,
     
     /*
     Alter
@@ -146,6 +147,14 @@ public enum DefaultKeyword implements Keyword {
     UNION,
     
     /*
+    TCL
+     */
+    COMMIT,
+    ROLLBACK,
+    SAVEPOINT,
+    BEGIN, 
+    
+    /*
     Other Command
      */
     DECLARE,
@@ -171,7 +180,6 @@ public enum DefaultKeyword implements Keyword {
     INOUT,
     OVER,
     ADVISE,
-    SIBLINGS,
     LOOP,
     EXPLAIN,
     DEFAULT,
@@ -238,7 +246,6 @@ public enum DefaultKeyword implements Keyword {
     ROUND,
     TRUNC,
     POSITION,
-    EXTRACT,
     LENGTH,
     CHAR_LENGTH,
     SUBSTRING,

@@ -36,6 +36,8 @@ import org.dbunit.IDatabaseTester;
 import org.dbunit.dataset.IDataSet;
 import org.dbunit.dataset.xml.FlatXmlDataSetBuilder;
 import org.dbunit.operation.DatabaseOperation;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
@@ -45,6 +47,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +107,49 @@ public abstract class AbstractSQLAssertTest extends AbstractSQLTest {
         return type;
     }
     
+    @Before
+    public void initDDLTables() throws SQLException {
+        if (getSql().startsWith("ALTER") || getSql().startsWith("TRUNCATE") || getSql().startsWith("DROP TABLE") || getSql().startsWith("CREATE UNIQUE INDEX") || getSql().startsWith("CREATE INDEX")) {
+            if (getSql().contains("TEMP")) {
+                executeSQL("CREATE TEMPORARY TABLE t_temp_log(id int, status varchar(10))");
+            } else {
+                executeSQL("CREATE TABLE t_log(id int, status varchar(10))");
+            }
+        }
+        if (getSql().startsWith("DROP INDEX")) {
+            executeSQL("CREATE TABLE t_log(id int, status varchar(10))");
+            executeSQL("CREATE INDEX t_log_index ON t_log(status)");
+        }
+    }
+    
+    @After
+    public void cleanupDDLTables() throws SQLException {
+        if (getSql().startsWith("CREATE UNIQUE INDEX") || getSql().startsWith("CREATE INDEX")) {
+            executeSQL("DROP TABLE t_log");
+        } else if (getSql().startsWith("ALTER") || getSql().startsWith("TRUNCATE") || getSql().startsWith("CREATE") || getSql().startsWith("DROP INDEX")) {
+            if (getSql().contains("TEMP")) {
+                executeSQL("DROP TABLE t_temp_log");
+            } else {
+                executeSQL("DROP TABLE t_log");
+            }
+        }
+    }
+    
+    private void executeSQL(final String sql) throws SQLException {
+        for (Map.Entry<DatabaseType, ? extends AbstractDataSourceAdapter> each : getDataSources().entrySet()) {
+            if (getCurrentDatabaseType() == each.getKey()) {
+                try (Connection conn = each.getValue().getConnection();
+                     Statement statement = conn.createStatement()) {
+                    statement.execute(sql);
+                    //CHECKSTYLE:OFF
+                } catch (final Exception ex) {
+                    //CHECKSTYLE:ON
+                    ex.printStackTrace();
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+    }
     @Test
     public void assertExecuteWithPreparedStatement() throws SQLException {
         execute(true, false);
@@ -148,9 +194,9 @@ public abstract class AbstractSQLAssertTest extends AbstractSQLTest {
             for (SQLAssertData each : sqlShardingRule.getData()) {
                 File expectedDataSetFile = getExpectedFile(each.getExpected());
                 if (sql.toUpperCase().startsWith("SELECT")) {
-                    assertDqlSql(isPreparedStatement, isExecute, abstractDataSourceAdapter, each, expectedDataSetFile);
+                    assertDQL(isPreparedStatement, isExecute, abstractDataSourceAdapter, each, expectedDataSetFile);
                 } else  {
-                    assertDmlAndDdlSql(isPreparedStatement, isExecute, abstractDataSourceAdapter, each, expectedDataSetFile);
+                    assertDMLAndDDL(isPreparedStatement, isExecute, abstractDataSourceAdapter, each, expectedDataSetFile);
                 }
             }
         }
@@ -169,8 +215,8 @@ public abstract class AbstractSQLAssertTest extends AbstractSQLTest {
         return false;
     }
     
-    private void assertDqlSql(final boolean isPreparedStatement, final boolean isExecute, final AbstractDataSourceAdapter abstractDataSourceAdapter, 
-                              final SQLAssertData data, final File expectedDataSetFile)
+    private void assertDQL(final boolean isPreparedStatement, final boolean isExecute, final AbstractDataSourceAdapter abstractDataSourceAdapter,
+                           final SQLAssertData data, final File expectedDataSetFile)
             throws MalformedURLException, SQLException, DatabaseUnitException {
         if (isPreparedStatement) {
             sqlAssertHelper.executeQueryWithPreparedStatement(isExecute, abstractDataSourceAdapter, getParameters(data), expectedDataSetFile);
@@ -179,8 +225,8 @@ public abstract class AbstractSQLAssertTest extends AbstractSQLTest {
         }
     }
     
-    private void assertDmlAndDdlSql(final boolean isPreparedStatement, final boolean isExecute, final AbstractDataSourceAdapter abstractDataSourceAdapter, 
-                                    final SQLAssertData data, final File expectedDataSetFile)
+    private void assertDMLAndDDL(final boolean isPreparedStatement, final boolean isExecute, final AbstractDataSourceAdapter abstractDataSourceAdapter,
+                                 final SQLAssertData data, final File expectedDataSetFile)
             throws MalformedURLException, SQLException, DatabaseUnitException {
         if (isPreparedStatement) {
             sqlAssertHelper.executeWithPreparedStatement(isExecute, abstractDataSourceAdapter, getParameters(data));
