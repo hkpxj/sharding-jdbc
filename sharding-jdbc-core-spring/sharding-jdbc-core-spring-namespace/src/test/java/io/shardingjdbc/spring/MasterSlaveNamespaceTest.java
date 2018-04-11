@@ -31,11 +31,12 @@ import org.junit.Test;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 
+import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.core.Is.is;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -47,30 +48,31 @@ public class MasterSlaveNamespaceTest extends AbstractJUnit4SpringContextTests {
     public void assertDefaultMaserSlaveDataSource() {
         MasterSlaveRule masterSlaveRule = getMasterSlaveRule("defaultMasterSlaveDataSource");
         assertThat(masterSlaveRule.getMasterDataSourceName(), is("dbtbl_0_master"));
-        assertNotNull(masterSlaveRule.getSlaveDataSourceMap().get("dbtbl_0_slave_0"));
-        assertNotNull(masterSlaveRule.getSlaveDataSourceMap().get("dbtbl_0_slave_1"));
+        assertTrue(masterSlaveRule.getSlaveDataSourceNames().contains("dbtbl_0_slave_0"));
+        assertTrue(masterSlaveRule.getSlaveDataSourceNames().contains("dbtbl_0_slave_1"));
     }
     
     @Test
     public void assertTypeMasterSlaveDataSource() {
         MasterSlaveRule randomSlaveRule = getMasterSlaveRule("randomMasterSlaveDataSource");
         MasterSlaveRule roundRobinSlaveRule = getMasterSlaveRule("roundRobinMasterSlaveDataSource");
-        assertTrue(randomSlaveRule.getStrategy() instanceof RandomMasterSlaveLoadBalanceAlgorithm);
-        assertTrue(roundRobinSlaveRule.getStrategy() instanceof RoundRobinMasterSlaveLoadBalanceAlgorithm);
+        assertTrue(randomSlaveRule.getLoadBalanceAlgorithm() instanceof RandomMasterSlaveLoadBalanceAlgorithm);
+        assertTrue(roundRobinSlaveRule.getLoadBalanceAlgorithm() instanceof RoundRobinMasterSlaveLoadBalanceAlgorithm);
     }
     
     @Test
     public void assertRefMasterSlaveDataSource() {
         MasterSlaveLoadBalanceAlgorithm randomStrategy = this.applicationContext.getBean("randomStrategy", MasterSlaveLoadBalanceAlgorithm.class);
         MasterSlaveRule masterSlaveRule = getMasterSlaveRule("refMasterSlaveDataSource");
-        assertTrue(masterSlaveRule.getStrategy() == randomStrategy);
+        assertTrue(masterSlaveRule.getLoadBalanceAlgorithm() == randomStrategy);
     }
     
     @Test
     public void assertDefaultShardingDataSource() {
+        Map<String, DataSource> dataSourceMap = getDataSourceMap("defaultShardingDataSource");
+        assertNotNull(dataSourceMap.get("randomMasterSlaveDataSource"));
+        assertNotNull(dataSourceMap.get("refMasterSlaveDataSource"));
         ShardingRule shardingRule = getShardingRule("defaultShardingDataSource");
-        assertNotNull(shardingRule.getDataSourceMap().get("randomMasterSlaveDataSource"));
-        assertNotNull(shardingRule.getDataSourceMap().get("refMasterSlaveDataSource"));
         assertThat(shardingRule.getDefaultDataSourceName(), is("randomMasterSlaveDataSource"));
         assertThat(shardingRule.getTableRules().size(), is(1));
         assertThat(shardingRule.getTableRules().iterator().next().getLogicTable(), is("t_order"));
@@ -79,6 +81,13 @@ public class MasterSlaveNamespaceTest extends AbstractJUnit4SpringContextTests {
     @Test
     public void assertShardingDataSourceType() {
         assertTrue(this.applicationContext.getBean("defaultMasterSlaveDataSource", MasterSlaveDataSource.class) instanceof SpringMasterSlaveDataSource);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private Map<String, DataSource> getDataSourceMap(final String shardingDataSourceName) {
+        ShardingDataSource shardingDataSource = this.applicationContext.getBean(shardingDataSourceName, ShardingDataSource.class);
+        Object shardingContext = FieldValueUtil.getFieldValue(shardingDataSource, "shardingContext", true);
+        return (Map) FieldValueUtil.getFieldValue(shardingContext, "dataSourceMap");
     }
     
     private ShardingRule getShardingRule(final String shardingDataSourceName) {

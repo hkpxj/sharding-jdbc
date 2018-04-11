@@ -18,6 +18,7 @@
 package io.shardingjdbc.core.integrate.type.sharding;
 
 import com.google.common.base.Joiner;
+import io.shardingjdbc.core.api.config.MasterSlaveRuleConfiguration;
 import io.shardingjdbc.core.api.config.ShardingRuleConfiguration;
 import io.shardingjdbc.core.api.config.TableRuleConfiguration;
 import io.shardingjdbc.core.api.config.strategy.StandardShardingStrategyConfiguration;
@@ -30,7 +31,7 @@ import io.shardingjdbc.core.integrate.fixture.RangeModuloDatabaseShardingAlgorit
 import io.shardingjdbc.core.integrate.jaxb.SQLShardingRule;
 import io.shardingjdbc.core.jdbc.core.datasource.MasterSlaveDataSource;
 import io.shardingjdbc.core.jdbc.core.datasource.ShardingDataSource;
-import io.shardingjdbc.core.rule.MasterSlaveRule;
+import io.shardingjdbc.core.rule.ShardingRule;
 import org.junit.After;
 
 import javax.sql.DataSource;
@@ -94,6 +95,7 @@ public abstract class AbstractShardingMasterSlaveTest extends AbstractSQLAssertT
             final ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
             TableRuleConfiguration orderTableRuleConfig = new TableRuleConfiguration();
             orderTableRuleConfig.setLogicTable("t_order");
+            orderTableRuleConfig.setLogicIndex("t_order_index");
             List<String> orderActualDataNodes = new LinkedList<>();
             for (String dataSourceName : masterSlaveDataSourceMap.keySet()) {
                 orderActualDataNodes.add(dataSourceName + ".t_order_${0..9}");
@@ -110,12 +112,19 @@ public abstract class AbstractShardingMasterSlaveTest extends AbstractSQLAssertT
             shardingRuleConfig.getTableRuleConfigs().add(orderItemTableRuleConfig);
             TableRuleConfiguration configTableRuleConfig = new TableRuleConfiguration();
             configTableRuleConfig.setLogicTable("t_config");
+            TableRuleConfiguration logTableRuleConfig = new TableRuleConfiguration();
+            logTableRuleConfig.setLogicIndex("t_log_index");
+            logTableRuleConfig.setLogicTable("t_log");
+            TableRuleConfiguration tempLogTableRuleConfig = new TableRuleConfiguration();
+            tempLogTableRuleConfig.setLogicTable("t_temp_log");
+            shardingRuleConfig.getTableRuleConfigs().add(logTableRuleConfig);
+            shardingRuleConfig.getTableRuleConfigs().add(tempLogTableRuleConfig);
             shardingRuleConfig.getTableRuleConfigs().add(configTableRuleConfig);
             shardingRuleConfig.setDefaultTableShardingStrategyConfig(
-                    new StandardShardingStrategyConfiguration("t_order_item", PreciseModuloDatabaseShardingAlgorithm.class.getName(), RangeModuloDatabaseShardingAlgorithm.class.getName()));
+                    new StandardShardingStrategyConfiguration("t_order_item", new PreciseModuloDatabaseShardingAlgorithm(), new RangeModuloDatabaseShardingAlgorithm()));
             shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(
-                    new StandardShardingStrategyConfiguration("user_id", PreciseModuloDatabaseShardingAlgorithm.class.getName(), RangeModuloDatabaseShardingAlgorithm.class.getName()));
-            getShardingDataSources().put(entry.getKey(), new ShardingDataSource(shardingRuleConfig.build(masterSlaveDataSourceMap)));
+                    new StandardShardingStrategyConfiguration("user_id", new PreciseModuloDatabaseShardingAlgorithm(), new RangeModuloDatabaseShardingAlgorithm()));
+            getShardingDataSources().put(entry.getKey(), new ShardingDataSource(masterSlaveDataSourceMap, new ShardingRule(shardingRuleConfig, masterSlaveDataSourceMap.keySet())));
         }
         return getShardingDataSources();
     }
@@ -147,11 +156,10 @@ public abstract class AbstractShardingMasterSlaveTest extends AbstractSQLAssertT
         return result;
     }
     
-    private MasterSlaveDataSource getMasterSlaveDataSource(final Map<String, DataSource> masterSlaveDataSourceMap, 
-                                                           final String name, final String masterDataSourceName, final String slaveDataSourceName) throws SQLException {
-        Map<String, DataSource> slaveDs0 = new HashMap<>(1, 1);
-        slaveDs0.put(slaveDataSourceName, masterSlaveDataSourceMap.get(slaveDataSourceName));
-        return new MasterSlaveDataSource(new MasterSlaveRule(name, masterDataSourceName, masterSlaveDataSourceMap.get(masterDataSourceName), slaveDs0), Collections.<String, Object>emptyMap());
+    private MasterSlaveDataSource getMasterSlaveDataSource(
+            final Map<String, DataSource> masterSlaveDataSourceMap, final String name, final String masterDataSourceName, final String slaveDataSourceName) throws SQLException {
+        return new MasterSlaveDataSource(
+                masterSlaveDataSourceMap, new MasterSlaveRuleConfiguration(name, masterDataSourceName, Collections.singleton(slaveDataSourceName)), Collections.<String, Object>emptyMap());
     }
     
     @After

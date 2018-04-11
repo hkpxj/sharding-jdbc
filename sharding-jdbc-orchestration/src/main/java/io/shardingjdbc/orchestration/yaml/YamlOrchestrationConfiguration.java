@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,8 @@ public class YamlOrchestrationConfiguration {
     
     private boolean overwrite;
     
+    private String type;
+    
     /**
      * Get orchestration master-slave rule configuration from yaml.
      *
@@ -49,6 +51,6 @@ public class YamlOrchestrationConfiguration {
         if (null != etcd && null != zookeeper) {
             throw new RuntimeException("Can't config both zookeeper and etcd as registry center!");
         }
-        return new OrchestrationConfiguration(getName(), null != etcd ? etcd : zookeeper, overwrite);
+        return new OrchestrationConfiguration(getName(), null != etcd ? etcd : zookeeper, overwrite, type);
     }
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,25 +17,31 @@
 
 package io.shardingjdbc.core.jdbc.core.statement;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
 import io.shardingjdbc.core.constant.SQLType;
 import io.shardingjdbc.core.executor.type.batch.BatchPreparedStatementExecutor;
 import io.shardingjdbc.core.executor.type.batch.BatchPreparedStatementUnit;
 import io.shardingjdbc.core.executor.type.prepared.PreparedStatementExecutor;
 import io.shardingjdbc.core.executor.type.prepared.PreparedStatementUnit;
 import io.shardingjdbc.core.jdbc.adapter.AbstractShardingPreparedStatementAdapter;
+import io.shardingjdbc.core.jdbc.core.ShardingContext;
 import io.shardingjdbc.core.jdbc.core.connection.ShardingConnection;
 import io.shardingjdbc.core.jdbc.core.resultset.GeneratedKeysResultSet;
 import io.shardingjdbc.core.jdbc.core.resultset.ShardingResultSet;
+import io.shardingjdbc.core.merger.JDBCQueryResult;
 import io.shardingjdbc.core.merger.MergeEngine;
-import io.shardingjdbc.core.parsing.parser.context.GeneratedKey;
+import io.shardingjdbc.core.merger.MergeEngineFactory;
+import io.shardingjdbc.core.merger.QueryResult;
+import io.shardingjdbc.core.parsing.parser.sql.dal.DALStatement;
 import io.shardingjdbc.core.parsing.parser.sql.dml.insert.InsertStatement;
+import io.shardingjdbc.core.parsing.parser.sql.dql.DQLStatement;
 import io.shardingjdbc.core.parsing.parser.sql.dql.select.SelectStatement;
+import io.shardingjdbc.core.routing.condition.GeneratedKey;
 import io.shardingjdbc.core.routing.PreparedStatementRoutingEngine;
 import io.shardingjdbc.core.routing.SQLExecutionUnit;
 import io.shardingjdbc.core.routing.SQLRouteResult;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterators;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -105,7 +111,8 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
         this.resultSetType = resultSetType;
         this.resultSetConcurrency = resultSetConcurrency;
         this.resultSetHoldability = resultSetHoldability;
-        routingEngine = new PreparedStatementRoutingEngine(sql, connection.getShardingContext());
+        ShardingContext shardingContext = connection.getShardingContext();
+        routingEngine = new PreparedStatementRoutingEngine(sql, shardingContext.getShardingRule(), shardingContext.getDatabaseType(), shardingContext.isShowSQL());
     }
     
     @Override
@@ -115,7 +122,12 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
             Collection<PreparedStatementUnit> preparedStatementUnits = route();
             List<ResultSet> resultSets = new PreparedStatementExecutor(
                     getConnection().getShardingContext().getExecutorEngine(), routeResult.getSqlStatement().getType(), preparedStatementUnits, getParameters()).executeQuery();
-            result = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+            List<QueryResult> queryResults = new ArrayList<>(resultSets.size());
+            for (ResultSet each : resultSets) {
+                queryResults.add(new JDBCQueryResult(each));
+            }
+            MergeEngine mergeEngine = MergeEngineFactory.newInstance(connection.getShardingContext().getShardingRule(), queryResults, routeResult.getSqlStatement());
+            result = new ShardingResultSet(resultSets, mergeEngine.merge(), this);
         } finally {
             clearBatch();
         }
@@ -167,7 +179,7 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     
     private Collection<PreparedStatement> generatePreparedStatementForDDL(final SQLExecutionUnit sqlExecutionUnit) throws SQLException {
         Collection<PreparedStatement> result = new LinkedList<>();
-        Collection<Connection> connections = getConnection().getAllConnections(sqlExecutionUnit.getDataSource());
+        Collection<Connection> connections = getConnection().getConnectionsForDDL(sqlExecutionUnit.getDataSource());
         for (Connection each : connections) {
             result.add(each.prepareStatement(sqlExecutionUnit.getSql(), resultSetType, resultSetConcurrency, resultSetHoldability));
         }
@@ -181,7 +193,7 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     }
     
     @Override
-    public void clearBatch() throws SQLException {
+    public void clearBatch() {
         currentResultSet = null;
         clearParameters();
         batchStatementUnits.clear();
@@ -243,7 +255,7 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     public ResultSet getGeneratedKeys() throws SQLException {
         Optional<GeneratedKey> generatedKey = getGeneratedKey();
         if (returnGeneratedKeys && generatedKey.isPresent()) {
-            return new GeneratedKeysResultSet(routeResult.getGeneratedKeys().iterator(), generatedKey.get().getColumn(), this);
+            return new GeneratedKeysResultSet(routeResult.getGeneratedKey().getGeneratedKeys().iterator(), generatedKey.get().getColumn(), this);
         }
         if (1 == routedStatements.size()) {
             return routedStatements.iterator().next().getGeneratedKeys();
@@ -253,7 +265,7 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     
     private Optional<GeneratedKey> getGeneratedKey() {
         if (null != routeResult && routeResult.getSqlStatement() instanceof InsertStatement) {
-            return Optional.fromNullable(((InsertStatement) routeResult.getSqlStatement()).getGeneratedKey());
+            return Optional.fromNullable(routeResult.getGeneratedKey());
         }
         return Optional.absent();
     }
@@ -263,15 +275,21 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
         if (null != currentResultSet) {
             return currentResultSet;
         }
-        if (1 == routedStatements.size()) {
+        if (1 == routedStatements.size() && routeResult.getSqlStatement() instanceof DQLStatement) {
             currentResultSet = routedStatements.iterator().next().getResultSet();
             return currentResultSet;
         }
         List<ResultSet> resultSets = new ArrayList<>(routedStatements.size());
+        List<QueryResult> queryResults = new ArrayList<>(routedStatements.size());
         for (PreparedStatement each : routedStatements) {
-            resultSets.add(each.getResultSet());
+            ResultSet resultSet = each.getResultSet();
+            resultSets.add(resultSet);
+            queryResults.add(new JDBCQueryResult(resultSet));
         }
-        currentResultSet = new ShardingResultSet(resultSets, new MergeEngine(resultSets, (SelectStatement) routeResult.getSqlStatement()).merge(), this);
+        if (routeResult.getSqlStatement() instanceof SelectStatement || routeResult.getSqlStatement() instanceof DALStatement) {
+            MergeEngine mergeEngine = MergeEngineFactory.newInstance(connection.getShardingContext().getShardingRule(), queryResults, routeResult.getSqlStatement());
+            currentResultSet = new ShardingResultSet(resultSets, mergeEngine.merge(), this);
+        }
         return currentResultSet;
     }
 }

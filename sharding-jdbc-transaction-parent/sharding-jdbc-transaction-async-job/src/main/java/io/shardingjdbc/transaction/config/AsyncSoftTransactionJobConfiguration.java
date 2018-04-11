@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,15 +24,16 @@ import lombok.Setter;
  * Asynchronized B.A.S.E transaction job configuration.
  *
  * @author caohao
+ * @author wangkai
  */
 @Getter
 @Setter
-public class AsyncSoftTransactionJobConfiguration {
+public final class AsyncSoftTransactionJobConfiguration {
     
     /**
      * Job name.
      */
-    private String name = "bestEffortsDeliveryJob";
+    private String name = "AsyncSoftTransaction";
     
     /**
      * Cron expression for trigger job.
@@ -52,5 +53,5 @@ public class AsyncSoftTransactionJobConfiguration {
     /**
      * Delay millis for asynchronized delivery.
      */
-    private long maxDeliveryTryDelayMillis = 60  * 1000L;
+    private long maxDeliveryTryDelayMillis = 60 * 1000L;
 }

@@ -30,6 +30,7 @@ import io.shardingjdbc.core.integrate.fixture.RangeModuloDatabaseShardingAlgorit
 import io.shardingjdbc.core.integrate.fixture.RangeModuloTableShardingAlgorithm;
 import io.shardingjdbc.core.integrate.jaxb.SQLShardingRule;
 import io.shardingjdbc.core.jdbc.core.datasource.ShardingDataSource;
+import io.shardingjdbc.core.rule.ShardingRule;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -79,6 +80,7 @@ public abstract class AbstractShardingDatabaseAndTableTest extends AbstractSQLAs
             shardingRuleConfig.setDefaultDataSourceName("dataSource_dbtbl_0");
             TableRuleConfiguration orderTableRuleConfig = new TableRuleConfiguration();
             orderTableRuleConfig.setLogicTable("t_order");
+            orderTableRuleConfig.setLogicIndex("t_order_index");
             List<String> orderActualDataNodes = new LinkedList<>();
             for (String dataSourceName : entry.getValue().keySet()) {
                 orderActualDataNodes.add(dataSourceName + ".t_order_${0..9}");
@@ -95,13 +97,20 @@ public abstract class AbstractShardingDatabaseAndTableTest extends AbstractSQLAs
             shardingRuleConfig.getTableRuleConfigs().add(orderItemTableRuleConfig);
             TableRuleConfiguration configTableRuleConfig = new TableRuleConfiguration();
             configTableRuleConfig.setLogicTable("t_config");
+            TableRuleConfiguration logTableRuleConfig = new TableRuleConfiguration();
+            logTableRuleConfig.setLogicIndex("t_log_index");
+            logTableRuleConfig.setLogicTable("t_log");
+            TableRuleConfiguration tempLogTableRuleConfig = new TableRuleConfiguration();
+            tempLogTableRuleConfig.setLogicTable("t_temp_log");
+            shardingRuleConfig.getTableRuleConfigs().add(logTableRuleConfig);
+            shardingRuleConfig.getTableRuleConfigs().add(tempLogTableRuleConfig);
             shardingRuleConfig.getTableRuleConfigs().add(configTableRuleConfig);
             shardingRuleConfig.getBindingTableGroups().add("t_order, t_order_item");
-            shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(
-                    new StandardShardingStrategyConfiguration("user_id", PreciseModuloDatabaseShardingAlgorithm.class.getName(), RangeModuloDatabaseShardingAlgorithm.class.getName()));
             shardingRuleConfig.setDefaultTableShardingStrategyConfig(
-                    new StandardShardingStrategyConfiguration("order_id", PreciseModuloTableShardingAlgorithm.class.getName(), RangeModuloTableShardingAlgorithm.class.getName()));
-            getShardingDataSources().put(entry.getKey(), new ShardingDataSource(shardingRuleConfig.build(entry.getValue())));
+                    new StandardShardingStrategyConfiguration("order_id", new PreciseModuloTableShardingAlgorithm(), new RangeModuloTableShardingAlgorithm()));
+            shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(
+                    new StandardShardingStrategyConfiguration("user_id", new PreciseModuloDatabaseShardingAlgorithm(), new RangeModuloDatabaseShardingAlgorithm()));
+            getShardingDataSources().put(entry.getKey(), new ShardingDataSource(entry.getValue(), new ShardingRule(shardingRuleConfig, entry.getValue().keySet())));
         }
         return getShardingDataSources();
     }

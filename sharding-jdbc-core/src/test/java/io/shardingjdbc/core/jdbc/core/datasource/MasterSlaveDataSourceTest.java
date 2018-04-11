@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,6 @@ package io.shardingjdbc.core.jdbc.core.datasource;
 import io.shardingjdbc.core.api.HintManager;
 import io.shardingjdbc.core.api.MasterSlaveDataSourceFactory;
 import io.shardingjdbc.core.api.config.MasterSlaveRuleConfiguration;
-import io.shardingjdbc.core.rule.MasterSlaveRule;
 import io.shardingjdbc.core.constant.DatabaseType;
 import io.shardingjdbc.core.constant.SQLType;
 import io.shardingjdbc.core.fixture.TestDataSource;
@@ -40,7 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.core.Is.is;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -57,9 +56,11 @@ public final class MasterSlaveDataSourceTest {
     public MasterSlaveDataSourceTest() throws SQLException {
         masterDataSource = new TestDataSource("test_ds_master");
         slaveDataSource = new TestDataSource("test_ds_slave");
-        Map<String, DataSource> slaveDataSourceMap = new HashMap<>(1, 1);
-        slaveDataSourceMap.put("test_ds_slave", slaveDataSource);
-        masterSlaveDataSource = new MasterSlaveDataSource(new MasterSlaveRule("test_ds", "test_ds_master", masterDataSource, slaveDataSourceMap), Collections.<String, Object>emptyMap());
+        Map<String, DataSource> dataSourceMap = new HashMap<>(2, 1);
+        dataSourceMap.put("test_ds_master", masterDataSource);
+        dataSourceMap.put("test_ds_slave", slaveDataSource);
+        masterSlaveDataSource = new MasterSlaveDataSource(
+                dataSourceMap, new MasterSlaveRuleConfiguration("test_ds", "test_ds_master", Collections.singletonList("test_ds_slave")), Collections.<String, Object>emptyMap());
     }
     
     @Before
@@ -104,10 +105,7 @@ public final class MasterSlaveDataSourceTest {
         dataSourceMap.put("slaveDataSource", slaveDataSource);
         when(masterDataSource.getConnection()).thenReturn(masterConnection);
         when(slaveDataSource.getConnection()).thenReturn(slaveConnection);
-        MasterSlaveRuleConfiguration masterSlaveRuleConfig = new MasterSlaveRuleConfiguration();
-        masterSlaveRuleConfig.setName("ds");
-        masterSlaveRuleConfig.setMasterDataSourceName("masterDataSource");
-        masterSlaveRuleConfig.setSlaveDataSourceNames(Collections.singletonList("slaveDataSource"));
+        MasterSlaveRuleConfiguration masterSlaveRuleConfig = new MasterSlaveRuleConfiguration("ds", "masterDataSource", Collections.singletonList("slaveDataSource"));
         try {
             ((MasterSlaveDataSource) MasterSlaveDataSourceFactory.createDataSource(dataSourceMap, masterSlaveRuleConfig, Collections.<String, Object>emptyMap())).getDatabaseType();
         } finally {
@@ -131,12 +129,9 @@ public final class MasterSlaveDataSourceTest {
         dataSourceMap.put("masterDataSource", masterDataSource);
         dataSourceMap.put("slaveDataSource1", slaveDataSource1);
         dataSourceMap.put("slaveDataSource2", slaveDataSource2);
-        MasterSlaveRuleConfiguration masterSlaveRuleConfig = new MasterSlaveRuleConfiguration();
-        masterSlaveRuleConfig.setName("ds");
-        masterSlaveRuleConfig.setMasterDataSourceName("masterDataSource");
-        masterSlaveRuleConfig.setSlaveDataSourceNames(Arrays.asList("slaveDataSource1", "slaveDataSource2"));
         assertThat(((MasterSlaveDataSource) MasterSlaveDataSourceFactory.createDataSource(dataSourceMap, 
-                masterSlaveRuleConfig, Collections.<String, Object>emptyMap())).getDatabaseType(), is(DatabaseType.H2));
+                new MasterSlaveRuleConfiguration("ds", "masterDataSource", Arrays.asList("slaveDataSource1", "slaveDataSource2")), Collections.<String, Object>emptyMap())).getDatabaseType(), 
+                is(DatabaseType.H2));
         verify(masterConnection).close();
         verify(slaveConnection1).close();
         verify(slaveConnection2).close();
@@ -151,7 +146,7 @@ public final class MasterSlaveDataSourceTest {
     }
     
     @Test
-    public void assertGetConnection() throws SQLException {
+    public void assertGetConnection() {
         assertThat(masterSlaveDataSource.getConnection(), instanceOf(MasterSlaveConnection.class));
     }
     

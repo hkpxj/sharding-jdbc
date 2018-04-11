@@ -1,3 +1,29 @@
+## 2.1.0
+
+### 里程碑
+1. Sharding-Proxy发布. 支持以数据库的形式使用Sharding-JDBC, 全面提供对MySQL命令行以及图形化客户端的支持
+
+### 功能提升
+1. [ISSUE #608](https://github.com/shardingjdbc/sharding-jdbc/issues/608) 支持MySQL的USE语句
+1. [ISSUE #609](https://github.com/shardingjdbc/sharding-jdbc/issues/609) 支持MySQL的SHOW语句
+1. [ISSUE #610](https://github.com/shardingjdbc/sharding-jdbc/issues/610) 优化不包含表的DQL
+1. [ISSUE #611](https://github.com/shardingjdbc/sharding-jdbc/issues/611) 支持MySQL的DESC语句
+1. [ISSUE #652](https://github.com/shardingjdbc/sharding-jdbc/issues/652) Spring Boot Starter 2.x支持
+
+### 缺陷修正
+1. [ISSUE #628](https://github.com/shardingjdbc/sharding-jdbc/issues/628) 支持PostgreSql的数据类型jsonb
+1. [ISSUE #646](https://github.com/shardingjdbc/sharding-jdbc/issues/646) 当SELECT ITEMS中的别名与GROUP BY或ORDER BY的真实列名对应时，无需补列
+
+## 2.0.3
+
+### 功能提升
+1. [ISSUE #600](https://github.com/shardingjdbc/sharding-jdbc/issues/600) 支持TCL
+
+### 缺陷修正
+1. [ISSUE #522](https://github.com/shardingjdbc/sharding-jdbc/issues/522) 读写分离Slave库不需要执行DDL语句
+1. [ISSUE #540](https://github.com/shardingjdbc/sharding-jdbc/issues/540) 梳理并支持别名为关键字SQL
+1. [ISSUE #577](https://github.com/shardingjdbc/sharding-jdbc/issues/577) 支持YAML配置换行
+
 ## 2.0.2
 
 ### 功能提升
@@ -7,7 +33,6 @@
 ### 缺陷修正
 1. [ISSUE #520](https://github.com/shardingjdbc/sharding-jdbc/issues/520) 引入分表后，唯一键冲突时异常类型不再是DuplicateKeyException
 1. [ISSUE #521](https://github.com/shardingjdbc/sharding-jdbc/issues/521) YAML文件中ShardingProperties设置无效
-1. [ISSUE #522](https://github.com/shardingjdbc/sharding-jdbc/issues/522) 读写分离Slave库不需要执行DDL语句
 1. [ISSUE #529](https://github.com/shardingjdbc/sharding-jdbc/issues/529) 表名大写无法查询
 1. [ISSUE #541](https://github.com/shardingjdbc/sharding-jdbc/issues/541) 无法解析IS NOT NULL
 1. [ISSUE #557](https://github.com/shardingjdbc/sharding-jdbc/issues/557) GroupBy和OrderBy仅别名不一致问题应使用流式归并

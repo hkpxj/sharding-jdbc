@@ -33,11 +33,11 @@ import io.shardingjdbc.orchestration.reg.etcd.EtcdConfiguration;
 import io.shardingjdbc.orchestration.reg.etcd.EtcdRegistryCenter;
 import io.shardingjdbc.orchestration.reg.zookeeper.ZookeeperConfiguration;
 import io.shardingjdbc.orchestration.reg.zookeeper.ZookeeperRegistryCenter;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.sql.DataSource;
-import java.sql.SQLException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -53,6 +53,7 @@ public final class OrchestrationFacade implements AutoCloseable {
     
     private final boolean isOverwrite;
     
+    @Getter
     private final ConfigurationService configService;
     
     private final InstanceStateService instanceStateService;
@@ -90,11 +91,10 @@ public final class OrchestrationFacade implements AutoCloseable {
      * @param shardingRuleConfig sharding rule configuration
      * @param configMap config map
      * @param props sharding properties
-     * @throws SQLException SQL exception
+     * @param shardingDataSource sharding data source
      */
-    public void init(
-            final Map<String, DataSource> dataSourceMap, final ShardingRuleConfiguration shardingRuleConfig, 
-            final Map<String, Object> configMap, final Properties props, final ShardingDataSource shardingDataSource) throws SQLException {
+    public void init(final Map<String, DataSource> dataSourceMap, final ShardingRuleConfiguration shardingRuleConfig, 
+                     final Map<String, Object> configMap, final Properties props, final ShardingDataSource shardingDataSource) {
         if (shardingRuleConfig.getMasterSlaveRuleConfigs().isEmpty()) {
             reviseShardingRuleConfigurationForMasterSlave(dataSourceMap, shardingRuleConfig);
         }
@@ -110,11 +110,10 @@ public final class OrchestrationFacade implements AutoCloseable {
      * @param dataSourceMap data source map
      * @param masterSlaveRuleConfig master-slave rule configuration
      * @param configMap config map
-     * @throws SQLException SQL exception
+     * @param masterSlaveDataSource master-slave source
      */
-    public void init(
-            final Map<String, DataSource> dataSourceMap, final MasterSlaveRuleConfiguration masterSlaveRuleConfig,
-            final Map<String, Object> configMap, final MasterSlaveDataSource masterSlaveDataSource) throws SQLException {
+    public void init(final Map<String, DataSource> dataSourceMap, final MasterSlaveRuleConfiguration masterSlaveRuleConfig, 
+                     final Map<String, Object> configMap, final MasterSlaveDataSource masterSlaveDataSource) {
         configService.persistMasterSlaveConfiguration(dataSourceMap, masterSlaveRuleConfig, configMap, isOverwrite);
         instanceStateService.persistMasterSlaveInstanceOnline();
         dataSourceService.persistDataSourcesNode();
@@ -131,7 +130,7 @@ public final class OrchestrationFacade implements AutoCloseable {
     }
     
     private Map<String, DataSource> getActualDataSourceMapForMasterSlave(final Map<String, DataSource> dataSourceMap) {
-        Map<String, DataSource> result = new HashMap<>();
+        Map<String, DataSource> result = new LinkedHashMap<>();
         for (Entry<String, DataSource> entry : dataSourceMap.entrySet()) {
             if (entry.getValue() instanceof MasterSlaveDataSource) {
                 MasterSlaveDataSource masterSlaveDataSource = (MasterSlaveDataSource) entry.getValue();
@@ -144,21 +143,18 @@ public final class OrchestrationFacade implements AutoCloseable {
     }
     
     private MasterSlaveRuleConfiguration getMasterSlaveRuleConfiguration(final MasterSlaveDataSource masterSlaveDataSource) {
-        MasterSlaveRuleConfiguration result = new MasterSlaveRuleConfiguration();
-        result.setName(masterSlaveDataSource.getMasterSlaveRule().getName());
-        result.setMasterDataSourceName(masterSlaveDataSource.getMasterSlaveRule().getMasterDataSourceName());
-        result.setSlaveDataSourceNames(masterSlaveDataSource.getMasterSlaveRule().getSlaveDataSourceMap().keySet());
-        result.setLoadBalanceAlgorithmClassName(masterSlaveDataSource.getMasterSlaveRule().getStrategy().getClass().getName());
-        return result;
+        return new MasterSlaveRuleConfiguration(
+                masterSlaveDataSource.getMasterSlaveRule().getName(), masterSlaveDataSource.getMasterSlaveRule().getMasterDataSourceName(), 
+                masterSlaveDataSource.getMasterSlaveRule().getSlaveDataSourceNames(), masterSlaveDataSource.getMasterSlaveRule().getLoadBalanceAlgorithm());
     }
     
     @Override
     public void close() {
         try {
             regCenter.close();
-            //CHECKSTYLE:OFF
+            // CHECKSTYLE:OFF
         } catch (final Exception ex) {
-            //CHECKSTYLE:ON
+            // CHECKSTYLE:ON
             log.warn("Sharding-JDBC: regCenter exception for: {}", ex.getMessage());
         }
     }

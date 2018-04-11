@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,10 @@
 
 package io.shardingjdbc.orchestration.internal.json;
 
+import io.shardingjdbc.core.api.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithm;
 import io.shardingjdbc.core.api.config.ShardingRuleConfiguration;
 import io.shardingjdbc.core.api.config.strategy.ShardingStrategyConfiguration;
+import io.shardingjdbc.core.keygen.KeyGenerator;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -32,6 +34,8 @@ public final class ShardingRuleConfigurationConverter {
     
     static {
         GsonFactory.registerTypeAdapter(ShardingStrategyConfiguration.class, new ShardingStrategyConfigurationGsonTypeAdapter());
+        GsonFactory.registerTypeAdapter(KeyGenerator.class, new KeyGeneratorGsonTypeAdapter());
+        GsonFactory.registerTypeAdapter(MasterSlaveLoadBalanceAlgorithm.class, new MasterSlaveLoadBalanceAlgorithmGsonTypeAdapter());
     }
     
     /**

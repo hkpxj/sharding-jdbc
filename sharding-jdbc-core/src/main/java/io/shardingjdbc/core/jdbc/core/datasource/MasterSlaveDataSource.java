@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,8 @@
 
 package io.shardingjdbc.core.jdbc.core.datasource;
 
-import com.google.common.base.Preconditions;
 import io.shardingjdbc.core.api.ConfigMapContext;
+import io.shardingjdbc.core.api.config.MasterSlaveRuleConfiguration;
 import io.shardingjdbc.core.constant.SQLType;
 import io.shardingjdbc.core.hint.HintManagerHolder;
 import io.shardingjdbc.core.jdbc.adapter.AbstractDataSourceAdapter;
@@ -51,19 +51,25 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
         }
     };
     
+    private Map<String, DataSource> dataSourceMap;
+    
     private MasterSlaveRule masterSlaveRule;
     
-    public MasterSlaveDataSource(final MasterSlaveRule masterSlaveRule, final Map<String, Object> configMap) throws SQLException {
-        super(getAllDataSources(masterSlaveRule.getMasterDataSource(), masterSlaveRule.getSlaveDataSourceMap().values()));
+    public MasterSlaveDataSource(final Map<String, DataSource> dataSourceMap, final MasterSlaveRuleConfiguration masterSlaveRuleConfig, final Map<String, Object> configMap) throws SQLException {
+        super(getAllDataSources(dataSourceMap, masterSlaveRuleConfig.getMasterDataSourceName(), masterSlaveRuleConfig.getSlaveDataSourceNames()));
+        this.dataSourceMap = dataSourceMap;
+        this.masterSlaveRule = new MasterSlaveRule(masterSlaveRuleConfig);
         if (!configMap.isEmpty()) {
             ConfigMapContext.getInstance().getMasterSlaveConfig().putAll(configMap);
         }
-        this.masterSlaveRule = masterSlaveRule;
     }
     
-    private static Collection<DataSource> getAllDataSources(final DataSource masterDataSource, final Collection<DataSource> slaveDataSources) {
-        Collection<DataSource> result = new LinkedList<>(slaveDataSources);
-        result.add(masterDataSource);
+    private static Collection<DataSource> getAllDataSources(final Map<String, DataSource> dataSourceMap, final String masterDataSourceName, final Collection<String> slaveDataSourceNames) {
+        Collection<DataSource> result = new LinkedList<>();
+        result.add(dataSourceMap.get(masterDataSourceName));
+        for (String each : slaveDataSourceNames) {
+            result.add(dataSourceMap.get(each));
+        }
         return result;
     }
     
@@ -73,9 +79,11 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
      * @return map of all actual data source name and all actual data sources
      */
     public Map<String, DataSource> getAllDataSources() {
-        Map<String, DataSource> result = new HashMap<>(masterSlaveRule.getSlaveDataSourceMap().size() + 1, 1);
-        result.put(masterSlaveRule.getMasterDataSourceName(), masterSlaveRule.getMasterDataSource());
-        result.putAll(masterSlaveRule.getSlaveDataSourceMap());
+        Map<String, DataSource> result = new HashMap<>(masterSlaveRule.getSlaveDataSourceNames().size() + 1, 1);
+        result.put(masterSlaveRule.getMasterDataSourceName(), dataSourceMap.get(masterSlaveRule.getMasterDataSourceName()));
+        for (String each : masterSlaveRule.getSlaveDataSourceNames()) {
+            result.put(each, dataSourceMap.get(each));
+        }
         return result;
     }
     
@@ -86,7 +94,7 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
      */
     public Map<String, DataSource> getMasterDataSource() {
         Map<String, DataSource> result = new HashMap<>(1, 1);
-        result.put(masterSlaveRule.getMasterDataSourceName(), masterSlaveRule.getMasterDataSource());
+        result.put(masterSlaveRule.getMasterDataSourceName(), dataSourceMap.get(masterSlaveRule.getMasterDataSourceName()));
         return result;
     }
     
@@ -106,13 +114,11 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
     public NamedDataSource getDataSource(final SQLType sqlType) {
         if (isMasterRoute(sqlType)) {
             DML_FLAG.set(true);
-            return new NamedDataSource(masterSlaveRule.getMasterDataSourceName(), masterSlaveRule.getMasterDataSource());
+            return new NamedDataSource(masterSlaveRule.getMasterDataSourceName(), dataSourceMap.get(masterSlaveRule.getMasterDataSourceName()));
         }
-        String selectedSourceName = masterSlaveRule.getStrategy().getDataSource(masterSlaveRule.getName(), 
-                masterSlaveRule.getMasterDataSourceName(), new ArrayList<>(masterSlaveRule.getSlaveDataSourceMap().keySet()));
-        DataSource selectedSource = selectedSourceName.equals(masterSlaveRule.getMasterDataSourceName())
-                ? masterSlaveRule.getMasterDataSource() : masterSlaveRule.getSlaveDataSourceMap().get(selectedSourceName);
-        Preconditions.checkNotNull(selectedSource, "");
+        String selectedSourceName = masterSlaveRule.getLoadBalanceAlgorithm().getDataSource(
+                masterSlaveRule.getName(), masterSlaveRule.getMasterDataSourceName(), new ArrayList<>(masterSlaveRule.getSlaveDataSourceNames()));
+        DataSource selectedSource = dataSourceMap.get(selectedSourceName);
         return new NamedDataSource(selectedSourceName, selectedSource);
     }
     
@@ -123,14 +129,16 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
     /**
      * Renew master-slave data source.
      *
-     * @param masterSlaveRule new master-slave rule
+     * @param dataSourceMap data source map
+     * @param masterSlaveRuleConfig new master-slave rule configuration
      */
-    public void renew(final MasterSlaveRule masterSlaveRule) {
-        this.masterSlaveRule = masterSlaveRule;
+    public void renew(final Map<String, DataSource> dataSourceMap, final MasterSlaveRuleConfiguration masterSlaveRuleConfig) {
+        this.dataSourceMap = dataSourceMap;
+        this.masterSlaveRule = new MasterSlaveRule(masterSlaveRuleConfig);
     }
     
     @Override
-    public Connection getConnection() throws SQLException {
+    public Connection getConnection() {
         return new MasterSlaveConnection(this);
     }
 }

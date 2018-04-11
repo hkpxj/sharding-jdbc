@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,7 @@ import io.shardingjdbc.core.api.config.TableRuleConfiguration;
 import io.shardingjdbc.core.constant.SQLType;
 import io.shardingjdbc.core.constant.ShardingPropertiesConstant;
 import io.shardingjdbc.core.executor.ExecutorEngine;
+import io.shardingjdbc.core.rule.ShardingRule;
 import org.junit.Test;
 
 import javax.sql.DataSource;
@@ -66,17 +67,13 @@ public final class ShardingDataSourceTest {
         Map<String, DataSource> masterSlaveDataSourceMap = new HashMap<>(2, 1);
         masterSlaveDataSourceMap.put("masterDataSource", masterDataSource);
         masterSlaveDataSourceMap.put("slaveDataSource", slaveDataSource);
-        MasterSlaveRuleConfiguration masterSlaveRuleConfig = new MasterSlaveRuleConfiguration();
-        masterSlaveRuleConfig.setName("ds");
-        masterSlaveRuleConfig.setMasterDataSourceName("masterDataSource");
-        masterSlaveRuleConfig.setSlaveDataSourceNames(Collections.singletonList("slaveDataSource"));
         MasterSlaveDataSource dataSource2 = (MasterSlaveDataSource) MasterSlaveDataSourceFactory.createDataSource(
-                masterSlaveDataSourceMap, masterSlaveRuleConfig, Collections.<String, Object>emptyMap());
+                masterSlaveDataSourceMap, new MasterSlaveRuleConfiguration("ds", "masterDataSource", Collections.singletonList("slaveDataSource")), Collections.<String, Object>emptyMap());
         Map<String, DataSource> dataSourceMap = new HashMap<>(2, 1);
         dataSourceMap.put("ds1", dataSource1);
         dataSourceMap.put("ds2", dataSource2);
-        assertDatabaseProductName(dataSourceMap, dataSource1.getConnection(), dataSource2.getMasterSlaveRule().getMasterDataSource().getConnection(), 
-                dataSource2.getMasterSlaveRule().getSlaveDataSourceMap().get("slaveDataSource").getConnection());
+        assertDatabaseProductName(dataSourceMap, dataSource1.getConnection(), 
+                dataSource2.getDataSourceMap().get("masterDataSource").getConnection(), dataSource2.getDataSourceMap().get("slaveDataSource").getConnection());
     }
     
     @Test
@@ -99,18 +96,15 @@ public final class ShardingDataSourceTest {
         Map<String, DataSource> slaveDataSourceMap = new HashMap<>(2, 1);
         slaveDataSourceMap.put("masterDataSource", masterDataSource);
         slaveDataSourceMap.put("slaveDataSource", slaveDataSource);
-        MasterSlaveRuleConfiguration masterSlaveRuleConfig = new MasterSlaveRuleConfiguration();
-        masterSlaveRuleConfig.setName("ds");
-        masterSlaveRuleConfig.setMasterDataSourceName("masterDataSource");
-        masterSlaveRuleConfig.setSlaveDataSourceNames(Collections.singletonList("slaveDataSource"));
-        MasterSlaveDataSource dataSource2 = (MasterSlaveDataSource) MasterSlaveDataSourceFactory.createDataSource(slaveDataSourceMap, masterSlaveRuleConfig, Collections.<String, Object>emptyMap());
+        MasterSlaveDataSource dataSource2 = (MasterSlaveDataSource) MasterSlaveDataSourceFactory.createDataSource(
+                slaveDataSourceMap, new MasterSlaveRuleConfiguration("ds", "masterDataSource", Collections.singletonList("slaveDataSource")), Collections.<String, Object>emptyMap());
         DataSource dataSource3 = mockDataSource("H2");
         Map<String, DataSource> dataSourceMap = new HashMap<>(3, 1);
         dataSourceMap.put("ds1", dataSource1);
         dataSourceMap.put("ds2", dataSource2);
         dataSourceMap.put("ds3", dataSource3);
-        assertDatabaseProductName(dataSourceMap, dataSource1.getConnection(), dataSource2.getMasterSlaveRule().getMasterDataSource().getConnection(), 
-                dataSource2.getMasterSlaveRule().getSlaveDataSourceMap().get("slaveDataSource").getConnection(), dataSource3.getConnection());
+        assertDatabaseProductName(dataSourceMap, dataSource1.getConnection(),
+                dataSource2.getDataSourceMap().get("masterDataSource").getConnection(), dataSource2.getDataSourceMap().get("slaveDataSource").getConnection());
     }
     
     private void assertDatabaseProductName(final Map<String, DataSource> dataSourceMap, final Connection... connections) throws SQLException {
@@ -151,7 +145,7 @@ public final class ShardingDataSourceTest {
         DataSource newDataSource = mockDataSource("H2");
         Map<String, DataSource> newDataSourceMap = new HashMap<>(1, 1);
         newDataSourceMap.put("ds", newDataSource);
-        shardingDataSource.renew(createShardingRuleConfig(newDataSourceMap).build(newDataSourceMap), new Properties());
+        shardingDataSource.renew(newDataSourceMap, new ShardingRule(createShardingRuleConfig(newDataSourceMap), newDataSourceMap.keySet()), new Properties());
         assertThat(originExecutorEngine, is(getExecutorEngine(shardingDataSource)));
     }
     
@@ -167,7 +161,7 @@ public final class ShardingDataSourceTest {
         newDataSourceMap.put("ds", newDataSource);
         Properties props = new Properties();
         props.setProperty(ShardingPropertiesConstant.EXECUTOR_SIZE.getKey(), "100");
-        shardingDataSource.renew(createShardingRuleConfig(newDataSourceMap).build(newDataSourceMap), props);
+        shardingDataSource.renew(newDataSourceMap, new ShardingRule(createShardingRuleConfig(newDataSourceMap), newDataSourceMap.keySet()), props);
         assertThat(originExecutorEngine, not(getExecutorEngine(shardingDataSource)));
     }
     
@@ -182,11 +176,11 @@ public final class ShardingDataSourceTest {
         DataSource newDataSource = mockDataSource("MySQL");
         Map<String, DataSource> newDataSourceMap = new HashMap<>(1, 1);
         newDataSourceMap.put("ds", newDataSource);
-        shardingDataSource.renew(createShardingRuleConfig(newDataSourceMap).build(newDataSourceMap), new Properties());
+        shardingDataSource.renew(newDataSourceMap, new ShardingRule(createShardingRuleConfig(newDataSourceMap), newDataSourceMap.keySet()), new Properties());
     }
     
     private ShardingDataSource createShardingDataSource(final Map<String, DataSource> dataSourceMap) throws SQLException {
-        return new ShardingDataSource(createShardingRuleConfig(dataSourceMap).build(dataSourceMap));
+        return new ShardingDataSource(dataSourceMap, new ShardingRule(createShardingRuleConfig(dataSourceMap), dataSourceMap.keySet()));
     }
     
     private ShardingRuleConfiguration createShardingRuleConfig(final Map<String, DataSource> dataSourceMap) {

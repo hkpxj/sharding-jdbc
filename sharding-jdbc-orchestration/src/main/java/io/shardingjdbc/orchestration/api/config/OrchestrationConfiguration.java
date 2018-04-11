@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,9 +30,15 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public final class OrchestrationConfiguration {
     
+    public static final String MASTER_SLAVE = "masterslave";
+    public static final String SHARDING = "sharding";
+    
     private final String name;
     
     private final RegistryCenterConfiguration regCenterConfig;
     
     private final boolean overwrite;
+
+    private final String type;
+
 }
