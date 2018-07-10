@@ -4,24 +4,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>sharding-jdbc</artifactId>
-        <groupId>io.shardingjdbc</groupId>
-        <version>2.1.0-SNAPSHOT</version>
+        <groupId>io.shardingsphere</groupId>
+        <artifactId>sharding-sphere</artifactId>
+        <version>3.0.0.M2-SNAPSHOT</version>
     </parent>
     <artifactId>sharding-proxy</artifactId>
     <name>${project.artifactId}</name>
     
-    <properties>
-        <sharding-jdbc.version>2.1.0-SNAPSHOT</sharding-jdbc.version>
-    </properties>
-    
     <dependencies>
         <dependency>
-            <groupId>io.shardingjdbc</groupId>
-            <artifactId>sharding-jdbc-orchestration</artifactId>
-            <version>${sharding-jdbc.version}</version>
+            <groupId>io.shardingsphere</groupId>
+            <artifactId>sharding-core</artifactId>
+            <version>${project.version}</version>
         </dependency>
-        
+        <dependency>
+            <groupId>io.shardingsphere</groupId>
+            <artifactId>sharding-jdbc-orchestration</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -41,19 +41,31 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>commons-pool</groupId>
-            <artifactId>commons-pool</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-dbcp2</artifactId>
-            <scope>runtime</scope>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP-java7</artifactId>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions-jta</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.transaction</groupId>
+            <artifactId>jta</artifactId>
         </dependency>
         
         <dependency>
@@ -69,13 +81,22 @@
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-library</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
     </dependencies>
-    
+
     <build>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
+                    <appendAssemblyId>false</appendAssemblyId>
                     <descriptors>
                         <descriptor>src/main/resources/assembly/assembly.xml</descriptor>
                     </descriptors>
@@ -89,6 +110,21 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <configuration>
+                    <imageName>shardingsphere/sharding-proxy:3.0.0.M2-SNAPSHOT</imageName>
+                    <dockerDirectory>${project.basedir}/src/main/docker</dockerDirectory>
+                    <resources>
+                        <resource>
+                            <targetPath>/</targetPath>
+                            <directory>${project.build.directory}</directory>
+                            <include>${project.build.finalName}.tar.gz</include>
+                        </resource>
+                    </resources>
+                </configuration>
             </plugin>
         </plugins>
     </build>
